@@ -17,22 +17,34 @@ app.use('/api/v1', v1);
 // request : requette HTTP (reçu du client)
 // response : response HTTP (à envoyer au client, en retour)
 v1.get('/message', async (request, response) => {
-    const quotes = await fs.readFile('./data/quotes.json');
-    response.send(JSON.parse(quotes));
+    const quotes = await messageService.getMessages();
+    response.send(quotes);
 });
 
 v1.get('/message/:id', async (request, response) => {
-    const quotes = await fs.readFile('./data/quotes.json');
-    const quoteArray = JSON.parse(quotes);
-
     // recupérer la citation qui correspond à l'id transmis
     const id = request.params.id;
-    const quote = quoteArray.find(function(currentQuote) {
-       return currentQuote.id == id;
-    });
+    try {
+        const quote = await messageService.getMessageById(id);
+        response.send(quote);
+    }
+    catch(e)
+    {
+        response.sendStatus(400);
+    }
+   
+});
 
-    // ternaire
-    quote ? response.send(quote) : response.sendStatus(404);
+v1.delete('/message/:id', basicAuth, async (request, response) => {
+    const id = request.params.id;
+    try {
+        const result = await messageService.deleteMessage(id);
+        result ? response.sendStatus(204) : response.sendStatus(404);
+    }
+    catch(e)
+    {
+        response.sendStatus(400);
+    }
 });
 
 v1.post('/message', basicAuth, async (request, response) => {
@@ -41,11 +53,11 @@ v1.post('/message', basicAuth, async (request, response) => {
     // un message  est valide si il a un auteur et une citation
     const isValid = message.quote && message.quote.length > 0
      && message.author && message.author.length > 0;
-    
+     
     if (!isValid) return response.sendStatus(400);
 
     // on sauvegarde dans mongo!
-    const createdMessage = messageService.createMessage(message);
+    const createdMessage = await messageService.createMessage(message);
 
     response.send(createdMessage);
 });
